@@ -2,6 +2,10 @@ import socket
 
 HOST = "0.0.0.0"
 PORT = 1234
+k_max_msg = 4096
+
+def msg(m):
+    print("\033[1;31;40m", m, sep="")
 
 def do_something(connfd):
     rbuf = connfd.recv(64)
@@ -11,6 +15,59 @@ def do_something(connfd):
     connfd.send(wbuf)
 
 
+def one_request(connfd: socket):
+    # 4 bytes header
+    rbuf = ['' * (4 + k_max_msg + 1)]
+    errno = 0
+    err = read_full(connfd, rbuf, 4)
+    if err:
+        if errno == 0:
+            msg("EOF")
+        else:
+            msg("read() error")
+        return err
+    
+    len_ = len(rbuf)
+    if len_ > k_max_msg: # assume little endian
+        msg("too long")
+        return -1
+
+    # request body
+    err = read_full(connfd, rbuf, len)
+    if err:
+        msg("read() error")
+        return err
+    
+    # do something
+    # CPP sets the end position of the rbuf to '\0' escape sequence
+    print(f"client says {rbuf}")
+
+    # reply using the same protocol
+    reply = "world"
+    len_ = len(reply)
+    return write_all(connfd, reply, 4 + len_)
+
+def read_full(fd: socket, buf: str, n: int) -> int:
+    while n > 0:
+        rv = fd.recv(n)
+        rv = int(rv)
+        if rv <= 0:
+            return -1
+        
+        n -= rv
+        buf += rv
+    return 0
+
+def write_all(fd: socket, buf: str, n: int) -> int:
+    while n > 0:
+        rv = fd.send(buf)
+        if rv <= 0:
+            return -1
+        
+        n -= rv
+        buf += rv
+    return 0
+
 if __name__ == "__main__":
     fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     val = 1
@@ -19,5 +76,12 @@ if __name__ == "__main__":
     fd.listen()
 
     while True:
+        # accept
         connfd, client_addr = fd.accept()
-        do_something(connfd)
+
+        while True:
+            err = one_request(connfd)
+            if err:
+                break
+        connfd.close()
+
