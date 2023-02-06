@@ -22,20 +22,20 @@ def one_request(connfd: socket):
     err = read_full(connfd, rbuf, 4)
     if err:
         if errno == 0:
-            msg("EOF")
+            print("EOF")
         else:
-            msg("read() error")
+            print("read() error")
         return err
     
     len_ = len(rbuf)
     if len_ > k_max_msg: # assume little endian
-        msg("too long")
+        print("too long")
         return -1
 
     # request body
-    err = read_full(connfd, rbuf, len)
+    err = read_full(connfd, rbuf, len_)
     if err:
-        msg("read() error")
+        print("read() error")
         return err
     
     # do something
@@ -44,18 +44,25 @@ def one_request(connfd: socket):
 
     # reply using the same protocol
     reply = "world"
+    print('here')
     len_ = len(reply)
     return write_all(connfd, reply, 4 + len_)
 
 def read_full(fd: socket, buf: str, n: int) -> int:
     while n > 0:
         rv = fd.recv(n)
-        rv = int(rv)
-        if rv <= 0:
+        try:
+            rv = int(rv)
+        except:
+            pass
+        if type(rv) is int and rv <= 0:
             return -1
         
-        n -= rv
-        buf += rv
+        try:
+            n -= rv
+        except:
+            pass
+        buf += str(rv)
     return 0
 
 def write_all(fd: socket, buf: str, n: int) -> int:

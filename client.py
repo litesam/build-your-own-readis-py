@@ -23,20 +23,20 @@ def query(fd: socket, text: List) -> int:
     err = read_full(fd, rbuf, 4)
     if err:
         if errno == 0:
-            msg("EOF")
+            print("EOF")
         else:
-            msg("read() error")
+            print("read() error")
         return err
     
     len_ = len(rbuf) # assume little endian
     if len_ > k_max_msg:
-        msg("too long")
+        print("too long")
         return -1
     
     # reply body
     err = read_full(fd, rbuf, len_)
     if err:
-        msg("read() error")
+        print("read() error")
         return err
 
     # do something
@@ -45,11 +45,18 @@ def query(fd: socket, text: List) -> int:
 def read_full(fd: socket, buf: str, n: int) -> int:
     while n > 0:
         rv = fd.recv(n)
-        if rv <= 0:
+        try:
+            rv = int(rv)
+        except:
+            pass
+        if type(rv) is int and rv <= 0:
             return -1
         
-        n -= rv
-        buf += rv
+        try:
+            n -= rv
+        except:
+            pass
+        buf += str(rv)
     return 0
 
 def write_all(fd: socket, buf: str, n: int) -> int:
