@@ -14,16 +14,16 @@ def query(fd: socket.socket, text: List) -> int:
     if len_ > k_max_msg:
         return -1
 
-    wbuf = ['' * (4 + k_max_msg)]
-    wbuf[0] = len_
+    wbuf = ['' * (1 + k_max_msg)]
+    wbuf[0] = str(len_)
     wbuf[1:] = list(text)
-    if err := write_all(fd, wbuf, len_):  # 4 is the length of the header, and the rest is the length
+    if err := write_all(fd, wbuf, 1 + len_):  # 1 is the length of the header, and the rest is the length
         return int(err)
 
     # 4 bytes header
-    rbuf = ['' * (k_max_msg + 1)]
+    rbuf = [b'' * (k_max_msg + 1)]
     errno = 0
-    err = read_full(fd, rbuf, 4)
+    err = read_full(fd, rbuf, 1)
     if err:
         if errno == 0:
             print("EOF")
@@ -31,7 +31,7 @@ def query(fd: socket.socket, text: List) -> int:
             print("read() error")
         return int(err)
 
-    len_ = len(rbuf)  # assume little endian
+    len_ = int(b''.join(rbuf))  # assume little endian
     if len_ > k_max_msg:
         print("too long")
         return -1
@@ -43,25 +43,17 @@ def query(fd: socket.socket, text: List) -> int:
         return int(err)
 
     # do something
-    print(f"server says: {rbuf}")
+    print(f"server says: {rbuf[2:]}")
     return 0
 
 
-def read_full(fd: socket.socket, buf: List, n: Any) -> int:
+def read_full(fd: socket.socket, buf: List, n: int) -> int:
     while n > 0:
         rv = fd.recv(n)
-        try:
-            rv = int(rv)
-        except:
-            pass
         if type(rv) is int and rv <= 0:
             return -1
-
-        try:
-            n -= rv
-        except:
-            buf += [str(rv)]
-            pass
+        n -= len(rv)
+        buf += [rv]
     return 0
 
 
@@ -73,7 +65,6 @@ def write_all(fd: socket.socket, buf: Any, n: int) -> int:
         if rv <= 0:
             return -1
 
-        print(n)
         n -= rv
         rv = bytes(str(rv), 'utf-8')
         buf += rv
