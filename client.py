@@ -14,7 +14,10 @@ def query(fd: socket.socket, text: List) -> int:
     if len_ > k_max_msg:
         return -1
 
-    if err := write_all(fd, text, len_):  # 4 is the length of the header, and the rest is the length
+    wbuf = ['' * (4 + k_max_msg)]
+    wbuf[0] = len_
+    wbuf[1:] = list(text)
+    if err := write_all(fd, wbuf, len_):  # 4 is the length of the header, and the rest is the length
         return int(err)
 
     # 4 bytes header

@@ -21,7 +21,7 @@ def one_request(connfd: socket.socket):
         return err
 
     print('here2')
-    len_ = len(rbuf)
+    len_ = int(rbuf)
     if len_ > k_max_msg:  # assume little endian
         print("too long")
         return -1

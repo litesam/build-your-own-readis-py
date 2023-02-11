@@ -6,3 +6,4 @@
  +-----+------+-----+------+-----
  | len | msg1 | len | msg2 | more ...
  +-----+------+-----+------+-----
+ - Need to do protocol for sending the message length before the message, which in python seems like a hard task to do
