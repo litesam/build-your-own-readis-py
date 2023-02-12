@@ -9,7 +9,8 @@ k_max_msg = 4096
 
 def one_request(connfd: socket.socket):
     # 1 bytes header
-    rbuf = [b'' * (k_max_msg + 1)]
+    rbuf = [b'']
+    # rbuf = []
     errno = 0
     err = read_full(connfd, rbuf, 1)
     if err:
@@ -39,9 +40,8 @@ def one_request(connfd: socket.socket):
     reply = "world"
     reply = [str(len(reply))]
     reply[1:] = list("world")
-    print(reply)
     len_ = len(reply)
-    return write_all(connfd, reply, 1 + len_)
+    return write_all(connfd, reply, len_)
 
 
 def read_full(fd: socket.socket, buf: List, n: int) -> int:
@@ -50,7 +50,7 @@ def read_full(fd: socket.socket, buf: List, n: int) -> int:
         if type(rv) is int and rv <= 0:
             return -1
         n -= len(rv)
-        buf += [rv]
+        buf.append(rv)
     return 0
 
 
@@ -59,9 +59,6 @@ def write_all(fd: socket.socket, buf: Any, n: int) -> int:
     buf = bytes(buf, 'utf-8')
     while n > 0:
         rv = fd.send(buf)
-        if rv <= 0:
-            return -1
-
         n -= rv
         rv = bytes(str(rv), 'utf-8')
         buf += rv
