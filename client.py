@@ -1,97 +1,104 @@
 import socket
-from typing import List
-from typing import Any
+import struct
 
-# Always use list mutate the data wherever possible
-# Assume len to be len_
-HOST = "0.0.0.0"
-PORT = 1234
+
+def msg(msg):
+    print(msg)
+
+
+def die(msg):
+    #TODO: handle fetching the last error status code.
+    err = 1 # errno
+    print("[%d] %s" % (err, msg))
+    raise SystemExit()
+
+
 k_max_msg = 4096
 
 
-def query(fd: socket.socket, text: List) -> int:
-    len_ = len(text)
-    if len_ > k_max_msg:
-        return -1
-
-    wbuf = ['' * (1 + k_max_msg)]
-    wbuf[0] = str(len_)
-    wbuf[1:] = list(text)
-    if err := write_all(fd, wbuf, 1 + len_):  # 1 is the length of the header, and the rest is the length
-        return int(err)
-
-    # 4 bytes header
-    rbuf = [b'']
-    # rbuf = []
-    errno = 0
-    err = read_full(fd, rbuf, 1)
-    if err:
-        if errno == 0:
-            print("EOF")
-        else:
-            print("read() error")
-        return int(err)
-
-    len_ = int(b''.join(rbuf))  # assume little endian
-    if len_ > k_max_msg:
-        print("too long")
-        return -1
-
-    # reply body
-    err = read_full(fd, rbuf, len_)
-    if err:
-        print("read() error")
-        return int(err)
-
-    # do something
-    print(f"server says: {rbuf[2:]}")
-    return 0
-
-
-def read_full(fd: socket.socket, buf: List, n: int) -> int:
+def read_full(fd, buf, n, start_index):
     while n > 0:
-        rv = fd.recv(n)
-        if type(rv) is int and rv <= 0:
+        data = fd.recv(n)
+        rv = len(data)
+        if rv <= 0:
             return -1
-        n -= len(rv)
-        buf.append(rv)
-    return 0
+        assert rv <= n
 
-
-def write_all(fd: socket.socket, buf: Any, n: int) -> int:
-    buf = ''.join(buf)
-    buf = bytes(buf, 'utf-8')
-    while n > 0:
-        rv = fd.send(buf)
         n -= rv
-        rv = bytes(str(rv), 'utf-8')
-        buf += rv
-    return 0
+        buf[start_index:rv] = data
 
+
+def write_all(fd, buf):
+    n = len(buf)
+    pos = 0
+    while n > 0:
+        sent = fd.send(buf[pos:])
+        if sent == 0:
+            return -1 # error
+        n -= sent
+        pos += sent
+
+
+def query(fd, text):
+    length = len(text)
+    if length > k_max_msg:
+        return -1
+
+    # total data
+    wbuf = struct.pack("<i", length) + text.encode()
+    if write_all(fd, wbuf):
+        return -1
+
+    # code to read from server.
+    # 4 bytes header
+    rbuf = bytearray(4 + k_max_msg+1)
+    try:
+        # Read the header
+        read_full(fd, rbuf, 4, 0)
+
+        len_ = struct.unpack("<i", rbuf[:4])[0] # Assume little endian
+
+        if len_ > k_max_msg:
+            msg("too long")
+            return -1
+
+        # Read the reply body
+        read_full(fd, rbuf, len_, 4)
+
+        # Process the reply
+        reply = rbuf[4:4+len_].decode()
+        print("Server says:", reply)
+
+        return 0
+    except Exception as e:
+        msg("Error: " + str(e))
+        return -1
+
+
+def main():
+    fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if not fd:
+        die("socket()")
+
+    addr = ("127.0.0.1", 1234)
+    try:
+        fd.connect(addr)
+    except Exception as e:
+        die("connect " + str(e))
+
+    # Multiple requests
+    err = query(fd, "hello1")
+    if err:
+        fd.close()
+        return
+    err = query(fd, "hello2")
+    if err:
+        fd.close()
+        return
+    err = query(fd, "hello3")
+    if err:
+        fd.close()
+        return
 
 if __name__ == "__main__":
-    fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    fd.connect((HOST, PORT))
-
-    # multilple requests
-    err = query(fd, list("hello1"))
-    if err:
-        fd.close()
-        quit()
-
-    err = query(fd, list("hello2"))
-    if err:
-        fd.close()
-        quit()
-
-    err = query(fd, list("hello3"))
-    if err:
-        fd.close()
-        quit()
-
-    err = query(fd, list("hello4"))
-    if err:
-        fd.close()
-        quit()
-
-    fd.close()
+    main()
